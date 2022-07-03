@@ -1,6 +1,6 @@
 defmodule ToDo.Cache do
-  @spec start_link(any()) :: :ignore | {:error, any} | {:ok, pid}
-  def start_link(_) do
+  @spec start_link() :: :ignore | {:error, any} | {:ok, pid}
+  def start_link do
     IO.puts("Starting To-Do cache...")
     DynamicSupervisor.start_link(name: __MODULE__, strategy: :one_for_one)
   end

@@ -3,17 +3,15 @@ defmodule ToDo.Server do
 
   # Interfaces
 
-  @spec start(any()) :: pid
+  @spec start(any) :: :ignore | {:error, any} | {:ok, pid}
   def start(todo_list_name) do
-    {:ok, pid} = GenServer.start(__MODULE__, [name: todo_list_name], name: via_tuple(todo_list_name))
-    pid
+    GenServer.start(__MODULE__, [name: todo_list_name], name: via_tuple(todo_list_name))
   end
 
-  @spec start_link(any) :: pid
+  @spec start_link(any) :: :ignore | {:error, any} | {:ok, pid}
   def start_link(todo_list_name) do
     IO.puts("Starting server for #{todo_list_name}...")
-    {:ok, pid} = GenServer.start_link(__MODULE__, [name: todo_list_name], name: via_tuple(todo_list_name))
-    pid
+    GenServer.start_link(__MODULE__, [name: todo_list_name], name: via_tuple(todo_list_name))
   end
 
   @spec add_entry(atom | pid | {atom, any} | {:via, atom, any}, any) :: :ok
