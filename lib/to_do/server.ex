@@ -1,18 +1,18 @@
 defmodule ToDo.Server do
-  use GenServer
+  use GenServer, restart: :temporary
 
   # Interfaces
 
   @spec start(any()) :: pid
   def start(todo_list_name) do
-    {:ok, pid} = GenServer.start(__MODULE__, [name: todo_list_name])
+    {:ok, pid} = GenServer.start(__MODULE__, [name: todo_list_name], name: via_tuple(todo_list_name))
     pid
   end
 
   @spec start_link(any) :: pid
   def start_link(todo_list_name) do
     IO.puts("Starting server for #{todo_list_name}...")
-    {:ok, pid} = GenServer.start_link(__MODULE__, [name: todo_list_name])
+    {:ok, pid} = GenServer.start_link(__MODULE__, [name: todo_list_name], name: via_tuple(todo_list_name))
     pid
   end
 
@@ -55,5 +55,11 @@ defmodule ToDo.Server do
   @impl GenServer
   def handle_info({:real_init, todo_list_name}, _) do
     {:noreply, {todo_list_name, ToDo.Database.get(todo_list_name) || ToDo.List.new()}}
+  end
+
+  # Internal functions
+
+  defp via_tuple(todo_list_name) do
+    ToDo.ProcessRegistry.via_tuple({__MODULE__, todo_list_name})
   end
 end

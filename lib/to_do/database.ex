@@ -1,58 +1,49 @@
 defmodule ToDo.Database do
-  use GenServer
-
+  @pool_size 3
   @db_folder "./persist"
 
-  @spec start :: :ignore | {:error, any} | {:ok, pid}
-  def start do
-    GenServer.start(__MODULE__, nil, name: __MODULE__)
-  end
-
-  @spec start_link :: :ignore | {:error, any} | {:ok, pid}
+  @spec start_link() :: :ignore | {:error, any} | {:ok, pid}
   def start_link do
-    IO.puts("Starting database server...")
-    GenServer.start_link(__MODULE__, nil, name: __MODULE__)
+    IO.puts("Starting database server supervisor...")
+
+    File.mkdir_p!(@db_folder)
+    children = Enum.map(1..@pool_size, &worker_spec/1)
+    Supervisor.start_link(children, strategy: :one_for_one)
   end
 
   @spec store(any, any) :: :ok
   def store(key, data) do
-    worker_pid = GenServer.call(__MODULE__, {:choose_worker, key})
-    ToDo.DatabaseWorker.store(worker_pid, key, data)
+    key |> choose_worker() |> ToDo.DatabaseWorker.store(key, data)
   end
 
   @spec get(any) :: any
   def get(key) do
-    worker_pid = GenServer.call(__MODULE__, {:choose_worker, key})
-    ToDo.DatabaseWorker.get(worker_pid, key)
+    key |> choose_worker() |> ToDo.DatabaseWorker.get(key)
+  end
+
+  # Internal functions
+
+  defp worker_spec(worker_id) do
+    default_worker_spec = {ToDo.DatabaseWorker, {@db_folder, worker_id}}
+    Supervisor.child_spec(default_worker_spec, id: worker_id)
   end
 
   # Server Callbacks
 
-  @impl GenServer
-  @spec init(any) :: {:ok, nil}
-  def init(_) do
-    File.mkdir_p!(@db_folder)
-    worker_map = Enum.map(0..2, fn index ->
-      {:ok, pid} = ToDo.DatabaseWorker.start_link(@db_folder)
-      {index, pid}
-    end) |> Enum.into(%{})
-
-    {:ok, worker_map}
+  @spec child_spec(any) :: %{
+          id: ToDo.Database,
+          start: {ToDo.Database, :start_link, []},
+          type: :supervisor
+        }
+  def child_spec(_) do
+    %{
+      id: __MODULE__,
+      start: {__MODULE__, :start_link, []},
+      type: :supervisor
+    }
   end
 
-  @impl GenServer
-  def handle_cast(_, worker_map) do
-    {:noreply, worker_map}
-  end
-
-  @impl GenServer
-  def handle_call({:choose_worker, key}, _from, worker_map) do
-    worker_pid = choose_worker(key, worker_map)
-    {:reply, worker_pid, worker_map}
-  end
-
-  defp choose_worker(key, worker_map) do
-    hash = :erlang.phash2(key, 3)
-    worker_map[hash]
+  defp choose_worker(key) do
+    :erlang.phash2(key, @pool_size) + 1
   end
 end
