@@ -1,18 +1,9 @@
 defmodule TodoCache do
-  @moduledoc """
-  Documentation for `TodoCache`.
-  """
+  use Application
 
-  @doc """
-  Hello world.
-
-  ## Examples
-
-      iex> TodoCache.hello()
-      :world
-
-  """
-  def hello do
-    :world
+  @impl Application
+  @spec start(any, any) :: {:error, any} | {:ok, pid}
+  def start(_, _) do
+    ToDo.System.start_link()
   end
 end

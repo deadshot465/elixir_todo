@@ -4,7 +4,8 @@ defmodule ToDo.System do
     Supervisor.start_link([
       ToDo.ProcessRegistry,
       ToDo.Database,
-      ToDo.Cache
+      ToDo.Cache,
+      ToDo.Web
       ], strategy: :one_for_one)
   end
 end

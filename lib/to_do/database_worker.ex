@@ -2,21 +2,21 @@ defmodule ToDo.DatabaseWorker do
   use GenServer
 
   @spec start({String.t(), integer()}) :: :ignore | {:error, any} | {:ok, pid}
-  def start({folder, worker_id}) do
-    GenServer.start(__MODULE__, [folder: folder], name: via_tuple(worker_id))
+  def start(folder) do
+    GenServer.start(__MODULE__, [folder: folder])
   end
 
   @spec start_link({String.t(), integer()}) :: :ignore | {:error, any} | {:ok, pid}
-  def start_link({folder, worker_id}) do
+  def start_link(folder) do
     IO.puts("Starting database worker...")
-    GenServer.start_link(__MODULE__, [folder: folder], name: via_tuple(worker_id))
+    GenServer.start_link(__MODULE__, [folder: folder])
   end
 
-  @spec store(integer(), any, any) :: :ok
-  def store(worker_id, key, data), do: GenServer.cast(via_tuple(worker_id), {:store, key, data})
+  @spec store(pid(), any, any) :: :ok
+  def store(worker_pid, key, data), do: GenServer.cast(worker_pid, {:store, key, data})
 
-  @spec get(integer(), any) :: any
-  def get(worker_id, key), do: GenServer.call(via_tuple(worker_id), {:get, key})
+  @spec get(pid(), any) :: any
+  def get(worker_pid, key), do: GenServer.call(worker_pid, {:get, key})
 
   # Server Callbacks
 
@@ -51,9 +51,5 @@ defmodule ToDo.DatabaseWorker do
 
   defp file_name(key, folder) do
     Path.join(folder, to_string(key))
-  end
-
-  defp via_tuple(worker_id) do
-    ToDo.ProcessRegistry.via_tuple({__MODULE__, worker_id})
   end
 end

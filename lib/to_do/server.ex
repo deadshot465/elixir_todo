@@ -1,61 +1,52 @@
 defmodule ToDo.Server do
-  use GenServer, restart: :temporary
+  use Agent, restart: :temporary
 
   # Interfaces
 
   @spec start(any) :: :ignore | {:error, any} | {:ok, pid}
   def start(todo_list_name) do
-    GenServer.start(__MODULE__, [name: todo_list_name], name: via_tuple(todo_list_name))
+    Agent.start(fn ->
+      IO.puts("Starting server for #{todo_list_name}...")
+      {todo_list_name, ToDo.Database.get(todo_list_name) || ToDo.List.new()}
+    end, name: global_name(todo_list_name))
   end
 
   @spec start_link(any) :: :ignore | {:error, any} | {:ok, pid}
   def start_link(todo_list_name) do
-    IO.puts("Starting server for #{todo_list_name}...")
-    GenServer.start_link(__MODULE__, [name: todo_list_name], name: via_tuple(todo_list_name))
+    Agent.start_link(fn ->
+      IO.puts("Starting server for #{todo_list_name}...")
+      {todo_list_name, ToDo.Database.get(todo_list_name) || ToDo.List.new()}
+    end, name: global_name(todo_list_name))
   end
 
   @spec add_entry(atom | pid | {atom, any} | {:via, atom, any}, any) :: :ok
-  def add_entry(pid, entry), do: GenServer.cast(pid, {:add, entry})
+  def add_entry(pid, entry) do
+    Agent.cast(pid, fn {name, state} ->
+      new_state = ToDo.List.add_entry(state, entry)
+      ToDo.Database.store(name, new_state)
+      {name, new_state}
+    end)
+  end
 
   @spec list_entries(atom | pid | {atom, any} | {:via, atom, any}) :: any
-  def list_entries(pid), do: GenServer.call(pid, :entries)
+  def list_entries(pid) do
+    Agent.get(pid, fn {_, state} ->
+      ToDo.List.entries(state)
+    end)
+  end
 
   @spec list_entries(atom | pid | {atom, any} | {:via, atom, any}, any) :: any
-  def list_entries(pid, date), do: GenServer.call(pid, {:entries, date})
-
-  # Serve Callbacks
-
-  @impl GenServer
-  @spec init([{:name, any}, ...]) :: {:ok, nil}
-  def init([name: todo_list_name]) do
-    send(self(), {:real_init, todo_list_name})
-    {:ok, nil}
-  end
-
-  @impl GenServer
-  def handle_cast({:add, entry}, {name, state}) do
-    new_state = ToDo.List.add_entry(state, entry)
-    ToDo.Database.store(name, new_state)
-    {:noreply, {name, new_state}}
-  end
-
-  @impl GenServer
-  def handle_call(:entries, _from, {_, state} = s) do
-    {:reply, ToDo.List.entries(state), s}
-  end
-
-  @impl GenServer
-  def handle_call({:entries, date}, _from, {_, state} = s) do
-    entries = ToDo.List.entries(state, date)
-    {:reply, entries, s}
-  end
-
-  @impl GenServer
-  def handle_info({:real_init, todo_list_name}, _) do
-    {:noreply, {todo_list_name, ToDo.Database.get(todo_list_name) || ToDo.List.new()}}
+  def list_entries(pid, date) do
+    Agent.get(pid, fn {_, state} ->
+      ToDo.List.entries(state, date)
+    end)
   end
 
   # Internal functions
+
+  defp global_name(todo_list_name) do
+    {:global, {__MODULE__, todo_list_name}}
+  end
 
   defp via_tuple(todo_list_name) do
     ToDo.ProcessRegistry.via_tuple({__MODULE__, todo_list_name})
