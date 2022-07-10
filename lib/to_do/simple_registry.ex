@@ -1,35 +1,42 @@
 defmodule ToDo.SimpleRegistry do
   use GenServer
 
+  @spec start_link :: :ignore | {:error, any} | {:ok, pid}
   def start_link do
     GenServer.start_link(__MODULE__, [], name: __MODULE__)
   end
 
-  def whereis(key), do: GenServer.call(__MODULE__, {:whereis, key})
+  @spec whereis(any) :: any
+  def whereis(key) do
+    case :ets.lookup(:simple_registry, key) do
+      [{^key, value}] -> value
+      _ -> nil
+    end
+  end
 
-  def register(key), do: GenServer.call(__MODULE__, {:register, key})
+  @spec register(any) :: :error | :ok
+  def register(key) do
+    Process.link(Process.whereis(__MODULE__))
+    if :ets.insert_new(:simple_registry, {key, self()}) do
+      :ok
+    else
+      :error
+    end
+  end
 
   # Server Callbacks
 
   @impl GenServer
-  @spec init(any) :: {:ok, atom | :ets.tid()}
+  @spec init(any) :: {:ok, nil}
   def init(_init_arg) do
-    {:ok, :ets.new(:simple_registry, [:named_table, {:read_concurrency, true}])}
+    Process.flag(:trap_exit, true)
+    :ets.new(:simple_registry, [:named_table, :public, read_concurrency: true, write_concurrency: true])
+    {:ok, nil}
   end
 
   @impl GenServer
-  def handle_call({:whereis, key}, _from, state) do
-    case :ets.lookup(state, key) do
-      [{^key, value}] -> {:reply, value, state}
-      _ -> {:reply, nil, state}
-    end
-  end
-
-  @impl GenServer
-  def handle_call({:register, key}, _from, state) do
-    case :ets.insert_new(state, key) do
-      true -> {:reply, :ok, state}
-      _ -> {:reply, :error, state}
-    end
+  def handle_info({:EXIT, pid, _reason}, state) do
+    :ets.match_delete(:simple_registry, {:_, pid})
+    {:noreply, state}
   end
 end
