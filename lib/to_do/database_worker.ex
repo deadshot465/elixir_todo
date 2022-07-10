@@ -13,7 +13,7 @@ defmodule ToDo.DatabaseWorker do
   end
 
   @spec store(pid(), any, any) :: :ok
-  def store(worker_pid, key, data), do: GenServer.cast(worker_pid, {:store, key, data})
+  def store(worker_pid, key, data), do: GenServer.call(worker_pid, {:store, key, data})
 
   @spec get(pid(), any) :: any
   def get(worker_pid, key), do: GenServer.call(worker_pid, {:get, key})
@@ -27,12 +27,14 @@ defmodule ToDo.DatabaseWorker do
   end
 
   @impl GenServer
-  def handle_cast({:store, key, data}, {folder} = state) do
+  def handle_call({:store, key, data}, from, {folder} = state) do
     spawn(fn ->
       key
       |> file_name(folder)
       |> File.write!(:erlang.term_to_binary(data))
+      GenServer.reply(from, :ok)
     end)
+
     {:noreply, state}
   end
 

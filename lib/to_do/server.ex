@@ -42,13 +42,17 @@ defmodule ToDo.Server do
     end)
   end
 
+  @spec whereis(any) :: nil | pid
+  def whereis(todo_list_name) do
+    case :global.whereis_name({__MODULE__, todo_list_name}) do
+      :undefined -> nil
+      pid -> pid
+    end
+  end
+
   # Internal functions
 
   defp global_name(todo_list_name) do
     {:global, {__MODULE__, todo_list_name}}
-  end
-
-  defp via_tuple(todo_list_name) do
-    ToDo.ProcessRegistry.via_tuple({__MODULE__, todo_list_name})
   end
 end
