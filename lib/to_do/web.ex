@@ -44,9 +44,11 @@ defmodule ToDo.Web do
   end
 
   def child_spec(_arg) do
+    port = System.get_env("TODO_PORT") |> Integer.parse() |> then(fn {value, _} -> value end)
+    IO.puts("Starting cowboy on port #{port}...")
     Plug.Adapters.Cowboy.child_spec(
       scheme: :http,
-      options: [port: 5454],
+      options: [port: port],
       plug: __MODULE__
     )
   end
